@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>World Time Bridge</title>
+  <meta name="description" content="Pick two cities, set a time in one, instantly see the time in the other." />
+  <style>
+    :root{
+      --bg: #0f1220;
+      --card: #181c2f;
+      --ink: #e8ebff;
+      --muted: #a9b0d0;
+      --accent: #7aa2ff;
+      --accent-2: #20e3b2;
+      --ring: #3a4266;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji;
+      color:var(--ink); background: radial-gradient(1200px 800px at 20% -10%, #233 0%, transparent 60%), radial-gradient(1000px 600px at 100% 0%, #1a1b2a 0%, transparent 60%), linear-gradient(120deg, #0c0f1b, #12162a);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .app{ width:min(980px, 100%); }
+    .card{
+      background: color-mix(in oklab, var(--card) 92%, black 8%);
+      border:1px solid var(--ring); border-radius:20px; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    header{ padding:22px 24px; border-bottom:1px solid var(--ring); display:flex; gap:14px; align-items:center; justify-content:space-between; }
+    header h1{ font-size:18px; letter-spacing:.2px; margin:0; font-weight:700; }
+    header .badges{ display:flex; gap:8px; align-items:center; }
+    .badge{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--ring); color:var(--muted); }
+
+    .grid{ display:grid; grid-template-columns: 1fr; gap:16px; padding:20px; }
+    @media (min-width: 860px){ .grid{ grid-template-columns: 1fr 1fr; gap:24px; } }
+
+    .panel{ padding:18px; border:1px solid var(--ring); border-radius:16px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.04)); }
+    .panel h2{ margin:0 0 14px; font-size:14px; color:var(--muted); font-weight:600; letter-spacing:.2px; text-transform:uppercase; }
+
+    label{ display:block; font-size:13px; color:var(--muted); margin:10px 0 6px; }
+    select, input[type="date"], input[type="time"]{
+      width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--ring); background:#0f1326; color:var(--ink); outline:none; box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      font-size:14px; transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    select:focus, input:focus{ border-color: color-mix(in oklab, var(--accent) 70%, white 15%); box-shadow:0 0 0 3px rgba(122,162,255,.15); }
+
+    .row{ display:flex; gap:10px; align-items:end; }
+    .row > *{ flex:1; }
+
+    .actions{ display:flex; gap:10px; margin-top:12px; }
+    button{
+      appearance:none; border:none; cursor:pointer; padding:12px 14px; border-radius:12px; font-weight:600; letter-spacing:.2px; color:#0e1220; background:linear-gradient(180deg, var(--accent), color-mix(in oklab, var(--accent) 70%, black 25%)); box-shadow: 0 6px 20px rgba(122,162,255,.35);
+    }
+    button.secondary{ background:linear-gradient(180deg, #cdd6f4, #9aa3bf); box-shadow:none; }
+    button.ghost{ color:var(--ink); background:transparent; border:1px solid var(--ring); }
+
+    .arrow{ display:flex; align-items:center; justify-content:center; }
+    .swap{
+      width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:var(--ink); background:transparent; border:1px solid var(--ring);
+    }
+
+    .result{
+      grid-column: 1 / -1; margin-top:6px; padding:22px; border-radius:16px; border:1px dashed var(--ring);
+      display:flex; flex-wrap:wrap; align-items:center; gap:16px; justify-content:space-between; background:linear-gradient(180deg, rgba(32,227,178,.06), transparent);
+    }
+    .result .big{ font-size: clamp(22px, 4vw, 32px); font-weight:800; letter-spacing:.3px; }
+    .result .sub{ color:var(--muted); font-size:14px; }
+    .result .tag{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--ring); color:var(--muted); }
+
+    footer{ padding:14px 20px; border-top:1px solid var(--ring); color:var(--muted); font-size:12.5px; display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; }
+    a{ color:var(--accent-2); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card" role="application" aria-label="World Time Bridge">
+      <header>
+        <h1>World Time Bridge</h1>
+        <div class="badges">
+          <div class="badge" title="Daylight Saving aware">DST-aware</div>
+          <div class="badge" title="No libraries">Vanilla JS</div>
+          <div class="badge" title="City database">Major US + Global Hubs</div>
+        </div>
+      </header>
+
+      <div class="grid">
+        <section class="panel" aria-labelledby="fromTitle">
+          <h2 id="fromTitle">From</h2>
+          <label for="fromCity">City</label>
+          <select id="fromCity" autocomplete="off"></select>
+
+          <div class="row">
+            <div>
+              <label for="date">Date</label>
+              <input id="date" type="date" />
+            </div>
+            <div>
+              <label for="time">Time</label>
+              <input id="time" type="time" step="60" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" id="nowBtn" type="button" title="Set to current time in the From city">Now in From City</button>
+            <button class="ghost" id="clearBtn" type="button" title="Reset inputs">Reset</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="toTitle">
+          <h2 id="toTitle">To</h2>
+          <label for="toCity">City</label>
+          <div class="row">
+            <select id="toCity" autocomplete="off"></select>
+            <button class="swap" id="swapBtn" type="button" title="Swap cities" aria-label="Swap cities">↔</button>
+          </div>
+
+          <div class="actions">
+            <div aria-live="polite" class="sub" id="tzNote"></div>
+          </div>
+        </section>
+
+        <div class="result" aria-live="polite">
+          <div class="big" id="displayTo">—</div>
+          <div style="flex:1"></div>
+          <div class="sub" id="displayFrom">—</div>
+          <div class="tag" id="dayDelta">Same day</div>
+        </div>
+      </div>
+
+      <footer>
+        <div>Tip: use <strong>Now</strong>, tweak the time, then <strong>Swap</strong> to flip directions.</div>
+        <div>Built with <span aria-hidden>🕰️</span> <span class="sub">Intl API, no libraries</span></div>
+      </footer>
+    </div>
+  </div>
+
+<script>
+// ————————————— City Database —————————————
+// Grouped for fast navigation. Labels are readable; values are IANA time zones.
+const CITY_GROUPS = [
+  { label: 'USA', cities: [
+    ['New York, NY', 'America/New_York'],
+    ['Washington, DC', 'America/New_York'],
+    ['Boston, MA', 'America/New_York'],
+    ['Philadelphia, PA', 'America/New_York'],
+    ['Miami, FL', 'America/New_York'],
+    ['Orlando, FL', 'America/New_York'],
+    ['Tampa, FL', 'America/New_York'],
+    ['Atlanta, GA', 'America/New_York'],
+    ['Charlotte, NC', 'America/New_York'],
+    ['Detroit, MI', 'America/Detroit'],
+    ['Pittsburgh, PA', 'America/New_York'],
+    ['Cleveland, OH', 'America/New_York'],
+    ['Columbus, OH', 'America/New_York'],
+    ['Cincinnati, OH', 'America/New_York'],
+
+    ['Chicago, IL', 'America/Chicago'],
+    ['Minneapolis, MN', 'America/Chicago'],
+    ['Milwaukee, WI', 'America/Chicago'],
+    ['St. Louis, MO', 'America/Chicago'],
+    ['Kansas City, MO', 'America/Chicago'],
+    ['Nashville, TN', 'America/Chicago'],
+    ['Memphis, TN', 'America/Chicago'],
+    ['New Orleans, LA', 'America/Chicago'],
+    ['Dallas, TX', 'America/Chicago'],
+    ['Houston, TX', 'America/Chicago'],
+    ['Austin, TX', 'America/Chicago'],
+    ['San Antonio, TX', 'America/Chicago'],
+
+    ['Denver, CO', 'America/Denver'],
+    ['Salt Lake City, UT', 'America/Denver'],
+
+    ['Phoenix, AZ', 'America/Phoenix'],
+
+    ['Las Vegas, NV', 'America/Los_Angeles'],
+    ['Los Angeles, CA', 'America/Los_Angeles'],
+    ['San Diego, CA', 'America/Los_Angeles'],
+    ['San Francisco, CA', 'America/Los_Angeles'],
+    ['San Jose, CA', 'America/Los_Angeles'],
+    ['Portland, OR', 'America/Los_Angeles'],
+    ['Seattle, WA', 'America/Los_Angeles'],
+    ['Sacramento, CA', 'America/Los_Angeles'],
+
+    ['Indianapolis, IN', 'America/Indiana/Indianapolis'],
+
+    ['Anchorage, AK', 'America/Anchorage'],
+    ['Honolulu, HI', 'Pacific/Honolulu'],
+  ]},
+  { label: 'Canada', cities: [
+    ['Toronto', 'America/Toronto'],
+    ['Montreal', 'America/Toronto'],
+    ['Ottawa', 'America/Toronto'],
+    ['Vancouver', 'America/Vancouver'],
+    ['Calgary', 'America/Edmonton'],
+    ['Edmonton', 'America/Edmonton'],
+    ['Winnipeg', 'America/Winnipeg'],
+  ]},
+  { label: 'Latin America', cities: [
+    ['Mexico City', 'America/Mexico_City'],
+    ['Bogotá', 'America/Bogota'],
+    ['Lima', 'America/Lima'],
+    ['Quito', 'America/Guayaquil'],
+    ['Caracas', 'America/Caracas'],
+    ['Santiago', 'America/Santiago'],
+    ['Buenos Aires', 'America/Argentina/Buenos_Aires'],
+    ['São Paulo', 'America/Sao_Paulo'],
+    ['Rio de Janeiro', 'America/Sao_Paulo'],
+    ['Montevideo', 'America/Montevideo'],
+  ]},
+  { label: 'Europe', cities: [
+    ['London', 'Europe/London'],
+    ['Dublin', 'Europe/Dublin'],
+    ['Lisbon', 'Europe/Lisbon'],
+    ['Madrid', 'Europe/Madrid'],
+    ['Barcelona', 'Europe/Madrid'],
+    ['Paris', 'Europe/Paris'],
+    ['Amsterdam', 'Europe/Amsterdam'],
+    ['Brussels', 'Europe/Brussels'],
+    ['Luxembourg', 'Europe/Luxembourg'],
+    ['Frankfurt', 'Europe/Berlin'],
+    ['Berlin', 'Europe/Berlin'],
+    ['Munich', 'Europe/Berlin'],
+    ['Zurich', 'Europe/Zurich'],
+    ['Geneva', 'Europe/Zurich'],
+    ['Vienna', 'Europe/Vienna'],
+    ['Prague', 'Europe/Prague'],
+    ['Warsaw', 'Europe/Warsaw'],
+    ['Copenhagen', 'Europe/Copenhagen'],
+    ['Stockholm', 'Europe/Stockholm'],
+    ['Oslo', 'Europe/Oslo'],
+    ['Helsinki', 'Europe/Helsinki'],
+    ['Athens', 'Europe/Athens'],
+    ['Bucharest', 'Europe/Bucharest'],
+    ['Belgrade', 'Europe/Belgrade'],
+    ['Istanbul', 'Europe/Istanbul'],
+    ['Moscow', 'Europe/Moscow'],
+  ]},
+  { label: 'Middle East & Africa', cities: [
+    ['Tel Aviv (TLV)', 'Asia/Jerusalem'],
+    ['Jerusalem', 'Asia/Jerusalem'],
+    ['Amman', 'Asia/Amman'],
+    ['Dubai', 'Asia/Dubai'],
+    ['Abu Dhabi', 'Asia/Dubai'],
+    ['Doha', 'Asia/Qatar'],
+    ['Riyadh', 'Asia/Riyadh'],
+    ['Kuwait City', 'Asia/Kuwait'],
+    ['Manama', 'Asia/Bahrain'],
+    ['Muscat', 'Asia/Muscat'],
+    ['Cairo', 'Africa/Cairo'],
+    ['Casablanca', 'Africa/Casablanca'],
+    ['Lagos', 'Africa/Lagos'],
+    ['Accra', 'Africa/Accra'],
+    ['Nairobi', 'Africa/Nairobi'],
+    ['Addis Ababa', 'Africa/Addis_Ababa'],
+    ['Johannesburg', 'Africa/Johannesburg'],
+  ]},
+  { label: 'Asia', cities: [
+    ['Tokyo', 'Asia/Tokyo'],
+    ['Seoul', 'Asia/Seoul'],
+    ['Beijing', 'Asia/Shanghai'],
+    ['Shanghai', 'Asia/Shanghai'],
+    ['Shenzhen', 'Asia/Shanghai'],
+    ['Hong Kong', 'Asia/Hong_Kong'],
+    ['Taipei', 'Asia/Taipei'],
+    ['Singapore', 'Asia/Singapore'],
+    ['Kuala Lumpur', 'Asia/Kuala_Lumpur'],
+    ['Bangkok', 'Asia/Bangkok'],
+    ['Jakarta', 'Asia/Jakarta'],
+    ['Ho Chi Minh City', 'Asia/Ho_Chi_Minh'],
+    ['Manila', 'Asia/Manila'],
+    ['New Delhi', 'Asia/Kolkata'],
+    ['Mumbai', 'Asia/Kolkata'],
+    ['Bengaluru', 'Asia/Kolkata'],
+    ['Karachi', 'Asia/Karachi'],
+    ['Islamabad', 'Asia/Karachi'],
+    ['Colombo', 'Asia/Colombo'],
+  ]},
+  { label: 'Oceania', cities: [
+    ['Sydney', 'Australia/Sydney'],
+    ['Melbourne', 'Australia/Melbourne'],
+    ['Brisbane', 'Australia/Brisbane'],
+    ['Adelaide', 'Australia/Adelaide'],
+    ['Perth', 'Australia/Perth'],
+    ['Auckland', 'Pacific/Auckland'],
+    ['Wellington', 'Pacific/Wellington'],
+  ]},
+  { label: 'Other', cities: [ ['UTC', 'UTC'] ] }
+];
+
+// ————————————— Utilities —————————————
+const $ = sel => document.querySelector(sel);
+const fromCity = $('#fromCity');
+const toCity = $('#toCity');
+const dateInput = $('#date');
+const timeInput = $('#time');
+const nowBtn = $('#nowBtn');
+const clearBtn = $('#clearBtn');
+const swapBtn = $('#swapBtn');
+const displayTo = $('#displayTo');
+const displayFrom = $('#displayFrom');
+const dayDelta = $('#dayDelta');
+const tzNote = $('#tzNote');
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function populateCitySelect(select){
+  CITY_GROUPS.forEach(group => {
+    const og = document.createElement('optgroup');
+    og.label = group.label;
+    group.cities.forEach(([label, tz]) => {
+      const opt = document.createElement('option');
+      opt.value = tz; opt.textContent = label; select.appendChild(opt);
+    });
+    select.appendChild(og);
+  });
+}
+
+function getLocalParts(date, timeZone){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false
+  }).formatToParts(date);
+  const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return { y:+map.year, m:+map.month, d:+map.day, h:+map.hour, min:+map.minute };
+}
+
+function tzOffsetMinutes(timeZone, when){
+  const fmt = new Intl.DateTimeFormat('en', { timeZone, timeZoneName:'longOffset' });
+  const name = fmt.formatToParts(when).find(p=>p.type==='timeZoneName')?.value || 'GMT+00:00';
+  const m = name.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  if(!m) return 0;
+  const sign = m[1] === '-' ? -1 : 1;
+  const h = parseInt(m[2], 10);
+  const min = parseInt(m[3] || '0', 10);
+  return sign * (h*60 + min);
+}
+
+// Convert a wall clock time (Y-M-D H:M in a TZ) to a UTC Date via fixed-point iteration
+function localToUTC(y, m, d, h, min, timeZone){
+  let guess = Date.UTC(y, m-1, d, h, min);
+  for(let i=0;i<3;i++){
+    const off = tzOffsetMinutes(timeZone, new Date(guess));
+    const next = Date.UTC(y, m-1, d, h, min) - off*60000;
+    if (Math.abs(next - guess) < 1000) break;
+    guess = next;
+  }
+  return new Date(guess);
+}
+
+function formatInTZ(date, timeZone){
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    weekday:'short', month:'short', day:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit', hour12:false
+  });
+  return fmt.format(date);
+}
+
+function dayDiffBetweenZones(instant, tzA, tzB){
+  const a = getLocalParts(instant, tzA); const b = getLocalParts(instant, tzB);
+  const da = Date.UTC(a.y, a.m-1, a.d); const db = Date.UTC(b.y, b.m-1, b.d);
+  return Math.round((db - da)/(24*3600*1000));
+}
+
+function update(){
+  const tzFrom = fromCity.value; const tzTo = toCity.value;
+  const [y,m,d] = dateInput.value ? dateInput.value.split('-').map(Number) : [NaN,NaN,NaN];
+  const [hh, mm] = timeInput.value ? timeInput.value.split(':').map(Number) : [NaN,NaN];
+  if(!tzFrom || !tzTo || Number.isNaN(y) || Number.isNaN(hh)){ displayTo.textContent='—'; displayFrom.textContent='—'; return; }
+
+  const utcInstant = localToUTC(y,m,d,hh,mm, tzFrom);
+  displayTo.textContent = `${formatInTZ(utcInstant, tzTo)}`;
+  displayFrom.textContent = `That same moment in ${fromCity.options[fromCity.selectedIndex].text}: ${formatInTZ(utcInstant, tzFrom)}`;
+
+  const delta = dayDiffBetweenZones(utcInstant, tzFrom, tzTo);
+  dayDelta.textContent = delta === 0 ? 'Same day' : (delta > 0 ? `Next day (+${delta})` : `Previous day (${delta})`);
+
+  const offFrom = tzOffsetMinutes(tzFrom, utcInstant);
+  const offTo = tzOffsetMinutes(tzTo, utcInstant);
+  const offLabel = n => {
+    const s = n>=0 ? '+' : '-';
+    const abs = Math.abs(n); return `UTC${s}${pad2(Math.floor(abs/60))}:${pad2(abs%60)}`;
+  };
+  tzNote.textContent = `${fromCity.options[fromCity.selectedIndex].text} ${offLabel(offFrom)} → ${toCity.options[toCity.selectedIndex].text} ${offLabel(offTo)}`;
+}
+
+function setNowInFrom(){
+  const tzFrom = fromCity.value || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const now = new Date();
+  const parts = getLocalParts(now, tzFrom);
+  dateInput.value = `${parts.y}-${pad2(parts.m)}-${pad2(parts.d)}`;
+  timeInput.value = `${pad2(parts.h)}:${pad2(parts.min)}`;
+}
+
+function resetAll(){
+  fromCity.selectedIndex = 0; toCity.selectedIndex = 1; // likely NY → TLV after we set defaults
+  setNowInFrom(); update();
+}
+
+function swap(){
+  const a = fromCity.selectedIndex; const b = toCity.selectedIndex;
+  fromCity.selectedIndex = b; toCity.selectedIndex = a;
+  setNowInFrom(); update();
+}
+
+function init(){
+  populateCitySelect(fromCity);
+  populateCitySelect(toCity);
+
+  // Smart defaults: From = New York, To = Tel Aviv (if present)
+  const findIndex = (sel, tz) => Array.from(sel.options).findIndex(o => o.value === tz);
+  const ny = findIndex(fromCity, 'America/New_York');
+  const tlv = findIndex(toCity, 'Asia/Jerusalem');
+  fromCity.selectedIndex = ny >= 0 ? ny : 0;
+  toCity.selectedIndex = tlv >= 0 ? tlv : 1;
+
+  setNowInFrom();
+  update();
+
+  fromCity.addEventListener('change', () => { setNowInFrom(); update(); });
+  toCity.addEventListener('change', update);
+  dateInput.addEventListener('change', update);
+  timeInput.addEventListener('input', update);
+  nowBtn.addEventListener('click', () => { setNowInFrom(); update(); });
+  clearBtn.addEventListener('click', resetAll);
+  swapBtn.addEventListener('click', swap);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
